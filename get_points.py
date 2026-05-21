@@ -1,7 +1,7 @@
 import cv2
 
 # Đọc video
-cap = cv2.VideoCapture('videos/traffic.mp4') # Đổi lại đường dẫn nếu cần
+cap = cv2.VideoCapture('videos/traffic1.mp4') # Đổi lại đường dẫn nếu cần
 ret, frame = cap.read()
 
 # Tính tỷ lệ thu nhỏ để vừa màn hình (ví dụ thu nhỏ 3 lần)

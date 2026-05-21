@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Traffic Analytics - Phân Tích Luồng Trực Tiếp</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background-color: #f5f7fb; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        canvas { border: 2px dashed #3498db; background-color: #fafafa; max-width: 100%; height: auto; display: block; margin-top: 15px; border-radius: 4px; cursor: crosshair; }
+        
+        #resultContainer { display: none; margin-top: 20px; border-top: 2px solid #ecf0f1; padding-top: 20px; text-align: center; }
+        /* ẢNH HỨNG STREAM */
+        #resultStream { max-width: 100%; border: 4px solid #8e44ad; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); background-color: black; }
+        
+        .controls { margin-top: 15px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button { padding: 10px 20px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-purple { background-color: #8e44ad; color: white; }
+        #status-bar { font-weight: bold; font-size: 1.1em; color: #2c3e50; background: #e8f4fd; padding: 10px; border-left: 5px solid #3498db; border-radius: 4px; }
+        .loading { animation: blink 1.5s infinite; color: #e67e22; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>1. Tải Video Giao Thông</h2>
+        <div class="controls">
+            <input type="file" id="videoUpload" accept="video/*">
+            <button class="btn-primary" onclick="uploadVideo()">Tải lên & Lấy Frame</button>
+        </div>
+
+        <h2>2. Cấu hình điểm đa giác & Truyền Phát Trực Tiếp</h2>
+        <div class="controls">
+            <button class="btn-danger" onclick="clearPoints()">Xóa điểm tọa độ</button>
+            <button class="btn-success" onclick="submitPoints()">Lưu cấu hình</button>
+            <button class="btn-purple" id="btnRun" onclick="startLiveStream()">🔴 Xem Stream AI Trực Tiếp</button>
+        </div>
+        
+        <p id="status-bar">Hệ thống chờ nhận dữ liệu điểm.</p>
+        <canvas id="imageCanvas"></canvas>
+
+        <div id="resultContainer">
+            <h2 style="color: #8e44ad;">🔴 Màn Hình Live Stream Tracking AI</h2>
+            <img id="resultStream" alt="Luồng Stream AI đang tải..." />
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentImage = new Image();
+        let clickedPoints = [];
+        let currentVideoPath = "";
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoUpload');
+            if(fileInput.files.length === 0) return alert("Chưa chọn file video!");
+
+            const formData = new FormData();
+            formData.append("video", fileInput.files[0]);
+            document.getElementById('status-bar').innerText = "Đang tải video...";
+
+            const res = await fetch("/upload", { method: "POST", body: formData });
+            const data = await res.json();
+
+            if(data.status === "success") {
+                currentVideoPath = data.video_path;
+                currentImage.onload = () => {
+                    canvas.width = currentImage.width;
+                    canvas.height = currentImage.height;
+                    clickedPoints = []; 
+                    drawCanvas();
+                    document.getElementById('status-bar').innerText = "Chấm 8 điểm cấu trúc (0/8).";
+                };
+                currentImage.src = data.frame_url + "?t=" + new Date().getTime(); 
+            }
+        }
+
+        canvas.addEventListener('mousedown', function(e) {
+            if(!currentImage.src || clickedPoints.length >= 8) return;
+            const rect = canvas.getBoundingClientRect();
+            clickedPoints.push([
+                Math.round((e.clientX - rect.left) * (canvas.width / rect.width)),
+                Math.round((e.clientY - rect.top) * (canvas.height / rect.height))
+            ]);
+            drawCanvas();
+            document.getElementById('status-bar').innerText = `Đã chọn: ${clickedPoints.length}/8 điểm.`;
+        });
+
+        function drawCanvas() {
+            if(!currentImage.src) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            clickedPoints.forEach((pt, index) => {
+                ctx.beginPath();
+                ctx.arc(pt[0], pt[1], 10, 0, 2 * Math.PI);
+                ctx.fillStyle = index < 4 ? '#ff3333' : '#3366ff'; 
+                ctx.fill();
+                ctx.lineWidth = 3; ctx.strokeStyle = 'white'; ctx.stroke();
+                ctx.font = "bold 20px Arial"; ctx.fillStyle = "white";
+                ctx.fillText(index + 1, pt[0] + 15, pt[1] + 5);
+            });
+        }
+
+        function clearPoints() { clickedPoints = []; drawCanvas(); }
+
+        async function submitPoints() {
+            if(clickedPoints.length !== 8) return alert("Hãy chấm đủ 8 điểm!");
+            const payload = { source_points: clickedPoints.slice(0, 4), counting_region: clickedPoints.slice(4, 8), video_path: currentVideoPath };
+            await fetch("/save-points", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            alert("Lưu thành công!");
+        }
+
+        function startLiveStream() {
+            if (clickedPoints.length < 8) return alert("Vui lòng lưu cấu hình trước khi khởi chạy!");
+            
+            document.getElementById('status-bar').innerHTML = "<span class='loading'>🚀 Đang thiết lập kênh truyền Stream dữ liệu thời gian thực...</span>";
+            document.getElementById('resultContainer').style.display = 'block';
+            
+            // Ép thẻ img load API stream, thêm timestamp để tránh Cache
+            document.getElementById('resultStream').src = "/video_feed?t=" + new Date().getTime();
+            
+            document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
