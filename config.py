@@ -3,7 +3,7 @@ import json
 import os
 
 # YOLO Configuration
-MODEL_PATH = "yolo11n.pt"
+MODEL_PATH = "yolo11l.pt"
 CONFIDENCE_THRESHOLD = 0.4
 TARGET_CLASSES = [2, 3, 5, 7] 
 
