@@ -1,129 +1,609 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="dark">
 <head>
     <meta charset="UTF-8">
-    <title>Traffic Analytics - Phân Tích Luồng Trực Tiếp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Analytics AI - Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            cyan: '#00f3ff',
+                            purple: '#bc13fe',
+                            dark: '#050505',
+                            panel: 'rgba(15, 23, 42, 0.6)',
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background-color: #f5f7fb; color: #333; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
-        canvas { border: 2px dashed #3498db; background-color: #fafafa; max-width: 100%; height: auto; display: block; margin-top: 15px; border-radius: 4px; cursor: crosshair; }
+        body {
+            background-color: #050505;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(188, 19, 254, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 243, 255, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #e2e8f0;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .neon-border:hover {
+            border-color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .btn-cyber {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
         
-        #resultContainer { display: none; margin-top: 20px; border-top: 2px solid #ecf0f1; padding-top: 20px; text-align: center; }
-        /* ẢNH HỨNG STREAM */
-        #resultStream { max-width: 100%; border: 4px solid #8e44ad; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); background-color: black; }
+        .btn-cyber::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.5s ease;
+        }
+        .btn-cyber:hover::before { left: 100%; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 243, 255, 0.6); }
+
+        canvas { cursor: crosshair; }
         
-        .controls { margin-top: 15px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        button { padding: 10px 20px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-        .btn-primary { background-color: #3498db; color: white; }
-        .btn-success { background-color: #2ecc71; color: white; }
-        .btn-danger { background-color: #e74c3c; color: white; }
-        .btn-purple { background-color: #8e44ad; color: white; }
-        #status-bar { font-weight: bold; font-size: 1.1em; color: #2c3e50; background: #e8f4fd; padding: 10px; border-left: 5px solid #3498db; border-radius: 4px; }
-        .loading { animation: blink 1.5s infinite; color: #e67e22; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        /* Toast Animation */
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideInRight 0.3s forwards; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h2>1. Tải Video Giao Thông</h2>
-        <div class="controls">
-            <input type="file" id="videoUpload" accept="video/*">
-            <button class="btn-primary" onclick="uploadVideo()">Tải lên & Lấy Frame</button>
-        </div>
+<body class="min-h-screen flex overflow-hidden">
 
-        <h2>2. Cấu hình điểm đa giác & Truyền Phát Trực Tiếp</h2>
-        <div class="controls">
-            <button class="btn-danger" onclick="clearPoints()">Xóa điểm tọa độ</button>
-            <button class="btn-success" onclick="submitPoints()">Lưu cấu hình</button>
-            <button class="btn-purple" id="btnRun" onclick="startLiveStream()">🔴 Xem Stream AI Trực Tiếp</button>
+    <aside class="w-64 glass-panel border-r border-white/10 hidden md:flex flex-col z-10 relative">
+        <div class="p-6 flex items-center gap-3 border-b border-white/10">
+            <div class="p-2 bg-cyber-purple/20 rounded-lg border border-cyber-purple/50">
+                <i data-lucide="cpu" class="text-cyber-purple w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wider text-white">NEXUS<span class="text-cyber-cyan">.AI</span></h1>
+                <p class="text-xs text-gray-400">Traffic Analytics</p>
+            </div>
         </div>
         
-        <p id="status-bar">Hệ thống chờ nhận dữ liệu điểm.</p>
-        <canvas id="imageCanvas"></canvas>
-
-        <div id="resultContainer">
-            <h2 style="color: #8e44ad;">🔴 Màn Hình Live Stream Tracking AI</h2>
-            <img id="resultStream" alt="Luồng Stream AI đang tải..." />
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 text-cyber-cyan shadow-[0_0_10px_rgba(0,243,255,0.1)] transition-all">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                <i data-lucide="video" class="w-5 h-5"></i> Camera Streams
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Reports
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+                <i data-lucide="settings" class="w-5 h-5"></i> Settings
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span class="text-sm text-gray-300">System Online</span>
+            </div>
         </div>
-    </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto relative">
+        
+        <header class="glass-panel border-b border-white/10 p-4 sticky top-0 z-20 flex justify-between items-center">
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+                <i data-lucide="activity" class="text-cyber-cyan"></i> Live Processing
+            </h2>
+            <div class="flex items-center gap-4">
+                <button class="p-2 hover:bg-white/10 rounded-full transition-all">
+                    <i data-lucide="bell" class="w-5 h-5 text-gray-300"></i>
+                </button>
+                <div class="h-8 w-8 rounded-full bg-gradient-to-r from-cyber-cyan to-cyber-purple flex items-center justify-center font-bold text-white shadow-lg">
+                    A
+                </div>
+            </div>
+        </header>
+
+        <div class="p-6 grid grid-cols-12 gap-6">
+            
+            <div class="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-cyber-cyan hover:-translate-y-1 transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-400 font-medium">Tổng Phương Tiện</p>
+                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-count">0</h3>
+                        </div>
+                        <div class="p-2 bg-cyber-cyan/10 rounded-lg"><i data-lucide="car" class="text-cyber-cyan w-6 h-6"></i></div>
+                    </div>
+                    <div class="mt-4 text-xs text-green-400 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3"></i> +12% so với giờ trước</div>
+                </div>
+                
+                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-cyber-purple hover:-translate-y-1 transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-400 font-medium">Tốc Độ Trung Bình</p>
+                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-speed">0 <span class="text-sm text-gray-500">km/h</span></h3>
+                        </div>
+                        <div class="p-2 bg-cyber-purple/10 rounded-lg"><i data-lucide="gauge" class="text-cyber-purple w-6 h-6"></i></div>
+                    </div>
+                    <div class="mt-4 text-xs text-gray-400">Real-time estimation</div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-green-500 hover:-translate-y-1 transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-400 font-medium">FPS Xử Lý</p>
+                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-fps">0</h3>
+                        </div>
+                        <div class="p-2 bg-green-500/10 rounded-lg"><i data-lucide="zap" class="text-green-500 w-6 h-6"></i></div>
+                    </div>
+                    <div class="mt-4 text-xs text-green-400">YOLOv11 TensorRT</div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-orange-500 hover:-translate-y-1 transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm text-gray-400 font-medium">Trạng Thái Hệ Thống</p>
+                            <h3 class="text-lg font-bold text-orange-400 mt-2" id="status-bar">Đang chờ cấu hình</h3>
+                        </div>
+                        <div class="p-2 bg-orange-500/10 rounded-lg"><i data-lucide="server" class="text-orange-500 w-6 h-6"></i></div>
+                    </div>
+                    <div class="mt-4 text-xs text-gray-400" id="point-counter">Đã chọn: 0/8 điểm</div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+                <div class="glass-panel rounded-2xl p-1 relative group overflow-hidden">
+                    <div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyber-cyan rounded-tl-xl"></div>
+                    <div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyber-cyan rounded-tr-xl"></div>
+                    <div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyber-cyan rounded-bl-xl"></div>
+                    <div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyber-cyan rounded-br-xl"></div>
+
+                    <div class="bg-black rounded-xl overflow-hidden relative min-h-[400px] flex items-center justify-center">
+                        
+                        <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-0">
+                            <i data-lucide="image-off" class="w-16 h-16 mb-4 opacity-50"></i>
+                            <p>Chưa có luồng dữ liệu</p>
+                        </div>
+
+                        <canvas id="imageCanvas" class="w-full h-auto z-10 relative object-contain"></canvas>
+                        
+                        <img id="resultStream" alt="AI Stream" class="w-full h-auto z-20 absolute top-0 left-0 hidden object-contain" />
+                        
+                        <div id="loadingOverlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 hidden flex-col items-center justify-center">
+                            <div class="w-12 h-12 border-4 border-cyber-purple border-t-cyber-cyan rounded-full animate-spin"></div>
+                            <p class="text-cyber-cyan mt-4 font-mono animate-pulse">Khởi tạo Engine AI...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-panel rounded-2xl p-5">
+                    <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="line-chart" class="text-cyber-purple"></i> Lưu lượng theo thời gian (Realtime)
+                    </h3>
+                    <div class="h-[250px] w-full relative">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+                
+                <div class="glass-panel p-6 rounded-2xl neon-border transition-all">
+                    <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="upload-cloud" class="text-cyber-cyan"></i> Nguồn Video
+                    </h3>
+                    
+                    <label for="videoUpload" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:bg-white/5 hover:border-cyber-cyan transition-all group">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i data-lucide="video" class="w-8 h-8 text-gray-400 group-hover:text-cyber-cyan mb-2 transition-colors"></i>
+                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold text-white">Click để tải lên</span> hoặc kéo thả file</p>
+                            <p class="text-xs text-gray-500">MP4, AVI, MKV</p>
+                        </div>
+                        <input id="videoUpload" type="file" class="hidden" accept="video/*" onchange="handleFileSelect(event)" />
+                    </label>
+                    <div id="fileNameDisplay" class="mt-3 text-sm text-cyber-cyan hidden truncate"></div>
+                    
+                    <button onclick="uploadVideo()" class="btn-cyber w-full mt-4 bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 px-4 rounded-lg border border-white/20 flex justify-center items-center gap-2">
+                        <i data-lucide="play" class="w-4 h-4"></i> Trích xuất Frame
+                    </button>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="crosshair" class="text-cyber-purple"></i> Thiết lập vùng quan tâm (ROI)
+                    </h3>
+                    
+                    <div class="space-y-3 mb-6">
+                        <div class="flex items-center gap-3 text-sm text-gray-300">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div> Điểm 1-4: Vùng đo tốc độ
+                        </div>
+                        <div class="flex items-center gap-3 text-sm text-gray-300">
+                            <div class="w-3 h-3 rounded-full bg-blue-500"></div> Điểm 5-8: Vùng đếm số lượng
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="clearPoints()" class="btn-cyber bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/50 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> Xóa điểm
+                        </button>
+                        <button onclick="submitPoints()" class="btn-cyber bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/50 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> Lưu tọa độ
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-2xl bg-gradient-to-br from-cyber-purple/10 to-transparent border border-cyber-purple/30">
+                    <div class="text-center mb-4">
+                        <h3 class="text-lg font-medium text-white">Bắt đầu phân tích</h3>
+                        <p class="text-xs text-gray-400 mt-1">Yêu cầu hoàn tất cấu hình điểm</p>
+                    </div>
+                    
+                    <button id="btnRun" onclick="startLiveStream()" class="btn-cyber w-full bg-gradient-to-r from-cyber-purple to-pink-600 hover:from-pink-600 hover:to-cyber-purple text-white font-bold py-3 px-4 rounded-xl shadow-[0_0_20px_rgba(188,19,254,0.4)] flex justify-center items-center gap-2 transition-all">
+                        <i data-lucide="radio" class="w-5 h-5 animate-pulse"></i> KHỞI CHẠY AI STREAM
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
 
     <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Canvas & Global State
         const canvas = document.getElementById('imageCanvas');
         const ctx = canvas.getContext('2d');
         let currentImage = new Image();
         let clickedPoints = [];
         let currentVideoPath = "";
 
-        async function uploadVideo() {
-            const fileInput = document.getElementById('videoUpload');
-            if(fileInput.files.length === 0) return alert("Chưa chọn file video!");
+        // UI Elements
+        const statusText = document.getElementById('status-bar');
+        const pointCounter = document.getElementById('point-counter');
+        const resultStream = document.getElementById('resultStream');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
 
-            const formData = new FormData();
-            formData.append("video", fileInput.files[0]);
-            document.getElementById('status-bar').innerText = "Đang tải video...";
+        // Toast System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let colorClass = 'border-blue-500 bg-blue-500/10 text-blue-400';
+            let icon = 'info';
+            
+            if(type === 'success') { colorClass = 'border-green-500 bg-green-500/10 text-green-400'; icon = 'check-circle'; }
+            if(type === 'error') { colorClass = 'border-red-500 bg-red-500/10 text-red-400'; icon = 'alert-circle'; }
+            if(type === 'warning') { colorClass = 'border-orange-500 bg-orange-500/10 text-orange-400'; icon = 'alert-triangle'; }
 
-            const res = await fetch("/upload", { method: "POST", body: formData });
-            const data = await res.json();
+            toast.className = `toast-enter flex items-center gap-3 p-4 rounded-xl border backdrop-blur-md shadow-lg ${colorClass} min-w-[300px]`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <span class="font-medium text-sm text-white">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons({ root: toast });
 
-            if(data.status === "success") {
-                currentVideoPath = data.video_path;
-                currentImage.onload = () => {
-                    canvas.width = currentImage.width;
-                    canvas.height = currentImage.height;
-                    clickedPoints = []; 
-                    drawCanvas();
-                    document.getElementById('status-bar').innerText = "Chấm 8 điểm cấu trúc (0/8).";
-                };
-                currentImage.src = data.frame_url + "?t=" + new Date().getTime(); 
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function updateStatus(msg, type = 'normal') {
+            statusText.innerText = msg;
+            if(type === 'error') statusText.className = "text-lg font-bold text-red-400 mt-2";
+            else if(type === 'success') statusText.className = "text-lg font-bold text-green-400 mt-2";
+            else if(type === 'loading') statusText.className = "text-lg font-bold text-cyber-cyan mt-2 animate-pulse";
+            else statusText.className = "text-lg font-bold text-orange-400 mt-2";
+        }
+
+        // File Selection UI
+        function handleFileSelect(e) {
+            const fileName = e.target.files[0]?.name;
+            if(fileName) {
+                const display = document.getElementById('fileNameDisplay');
+                display.innerText = "File: " + fileName;
+                display.classList.remove('hidden');
             }
         }
 
+        // Upload Video
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoUpload');
+            if(fileInput.files.length === 0) return showToast("Vui lòng chọn file video trước!", 'warning');
+
+            const formData = new FormData();
+            formData.append("video", fileInput.files[0]);
+            
+            updateStatus("Đang xử lý video...", 'loading');
+            loadingOverlay.style.display = 'flex';
+
+            try {
+                const res = await fetch("/upload", { method: "POST", body: formData });
+                const data = await res.json();
+
+                if(data.status === "success") {
+                    currentVideoPath = data.video_path;
+                    currentImage.onload = () => {
+                        canvas.width = currentImage.width;
+                        canvas.height = currentImage.height;
+                        clickedPoints = []; 
+                        drawCanvas();
+                        
+                        videoPlaceholder.style.display = 'none';
+                        resultStream.classList.add('hidden');
+                        canvas.style.display = 'block';
+                        loadingOverlay.style.display = 'none';
+
+                        updateStatus("Chấm 8 điểm cấu trúc", 'normal');
+                        pointCounter.innerText = "Đã chọn: 0/8 điểm";
+                        showToast("Trích xuất Frame thành công", 'success');
+                    };
+                    currentImage.src = data.frame_url + "?t=" + new Date().getTime(); 
+                } else {
+                    throw new Error("Lỗi từ server");
+                }
+            } catch (err) {
+                loadingOverlay.style.display = 'none';
+                showToast("Lỗi tải video", 'error');
+                updateStatus("Lỗi tải file", 'error');
+            }
+        }
+
+        // Drawing Logic
         canvas.addEventListener('mousedown', function(e) {
-            if(!currentImage.src || clickedPoints.length >= 8) return;
+            if(!currentImage.src || clickedPoints.length >= 8) {
+                if(clickedPoints.length >= 8) showToast("Đã đủ 8 điểm!", 'warning');
+                return;
+            }
+            
             const rect = canvas.getBoundingClientRect();
+            // Map click coordinate based on natural image size vs displayed size
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
             clickedPoints.push([
-                Math.round((e.clientX - rect.left) * (canvas.width / rect.width)),
-                Math.round((e.clientY - rect.top) * (canvas.height / rect.height))
+                Math.round((e.clientX - rect.left) * scaleX),
+                Math.round((e.clientY - rect.top) * scaleY)
             ]);
+            
             drawCanvas();
-            document.getElementById('status-bar').innerText = `Đã chọn: ${clickedPoints.length}/8 điểm.`;
+            pointCounter.innerText = `Đã chọn: ${clickedPoints.length}/8 điểm.`;
+            
+            if(clickedPoints.length === 8) {
+                updateStatus("Sẵn sàng lưu cấu hình", 'success');
+                showToast("Đã chấm đủ 8 điểm. Vui lòng bấm Lưu.", 'info');
+            }
         });
 
         function drawCanvas() {
             if(!currentImage.src) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            
+            // Draw lines connecting regions for better UX
+            if(clickedPoints.length > 1) {
+                // Speed Region (Red)
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 51, 51, 0.5)';
+                ctx.lineWidth = 2;
+                for(let i=0; i < Math.min(clickedPoints.length, 4); i++) {
+                    if(i===0) ctx.moveTo(clickedPoints[i][0], clickedPoints[i][1]);
+                    else ctx.lineTo(clickedPoints[i][0], clickedPoints[i][1]);
+                }
+                if(clickedPoints.length >= 4) ctx.lineTo(clickedPoints[0][0], clickedPoints[0][1]);
+                ctx.stroke();
+                
+                // Count Region (Blue)
+                if(clickedPoints.length > 4) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(51, 102, 255, 0.5)';
+                    ctx.lineWidth = 2;
+                    for(let i=4; i < clickedPoints.length; i++) {
+                        if(i===4) ctx.moveTo(clickedPoints[i][0], clickedPoints[i][1]);
+                        else ctx.lineTo(clickedPoints[i][0], clickedPoints[i][1]);
+                    }
+                    if(clickedPoints.length === 8) ctx.lineTo(clickedPoints[4][0], clickedPoints[4][1]);
+                    ctx.stroke();
+                }
+            }
+
             clickedPoints.forEach((pt, index) => {
                 ctx.beginPath();
-                ctx.arc(pt[0], pt[1], 10, 0, 2 * Math.PI);
+                ctx.arc(pt[0], pt[1], 8, 0, 2 * Math.PI);
                 ctx.fillStyle = index < 4 ? '#ff3333' : '#3366ff'; 
                 ctx.fill();
-                ctx.lineWidth = 3; ctx.strokeStyle = 'white'; ctx.stroke();
-                ctx.font = "bold 20px Arial"; ctx.fillStyle = "white";
-                ctx.fillText(index + 1, pt[0] + 15, pt[1] + 5);
+                ctx.lineWidth = 2; 
+                ctx.strokeStyle = '#ffffff'; 
+                ctx.stroke();
+                
+                // Text background for visibility
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(pt[0] + 12, pt[1] - 12, 18, 20);
+                
+                ctx.font = "bold 14px 'JetBrains Mono'"; 
+                ctx.fillStyle = "#00f3ff";
+                ctx.fillText(index + 1, pt[0] + 16, pt[1] + 3);
             });
         }
 
-        function clearPoints() { clickedPoints = []; drawCanvas(); }
+        function clearPoints() { 
+            clickedPoints = []; 
+            drawCanvas(); 
+            pointCounter.innerText = `Đã chọn: 0/8 điểm.`;
+            updateStatus("Đã xóa điểm, hãy chấm lại", 'normal');
+        }
 
         async function submitPoints() {
-            if(clickedPoints.length !== 8) return alert("Hãy chấm đủ 8 điểm!");
-            const payload = { source_points: clickedPoints.slice(0, 4), counting_region: clickedPoints.slice(4, 8), video_path: currentVideoPath };
-            await fetch("/save-points", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-            alert("Lưu thành công!");
+            if(clickedPoints.length !== 8) return showToast("Vui lòng chấm đủ 8 điểm!", 'error');
+            const payload = { 
+                source_points: clickedPoints.slice(0, 4), 
+                counting_region: clickedPoints.slice(4, 8), 
+                video_path: currentVideoPath 
+            };
+            try {
+                await fetch("/save-points", { 
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" }, 
+                    body: JSON.stringify(payload) 
+                });
+                showToast("Đã lưu cấu hình đa giác", 'success');
+                updateStatus("Cấu hình hoàn tất", 'success');
+            } catch(err) {
+                showToast("Lỗi khi lưu tọa độ", 'error');
+            }
         }
 
         function startLiveStream() {
-            if (clickedPoints.length < 8) return alert("Vui lòng lưu cấu hình trước khi khởi chạy!");
+            if (clickedPoints.length < 8) return showToast("Chưa hoàn tất cấu hình ROI!", 'error');
             
-            document.getElementById('status-bar').innerHTML = "<span class='loading'>🚀 Đang thiết lập kênh truyền Stream dữ liệu thời gian thực...</span>";
-            document.getElementById('resultContainer').style.display = 'block';
+            updateStatus("Streaming...", 'loading');
+            loadingOverlay.style.display = 'flex';
             
-            // Ép thẻ img load API stream, thêm timestamp để tránh Cache
-            document.getElementById('resultStream').src = "/video_feed?t=" + new Date().getTime();
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                canvas.style.display = 'none';
+                resultStream.classList.remove('hidden');
+                resultStream.src = "/video_feed?t=" + new Date().getTime();
+                
+                showToast("Bắt đầu luồng AI Tracker", 'success');
+                startMockDataSimulation(); // Bật mô phỏng data UI
+            }, 1000);
+        }
+
+        // ==========================================
+        // CHART & MOCK DATA LOGIC (For Dashboard UI)
+        // ==========================================
+        
+        // Chart Initialization
+        const ctxChart = document.getElementById('trafficChart').getContext('2d');
+        
+        // Tạo gradient mượt cho Line Chart
+        let gradientFill = ctxChart.createLinearGradient(0, 0, 0, 250);
+        gradientFill.addColorStop(0, 'rgba(188, 19, 254, 0.5)'); // cyber-purple
+        gradientFill.addColorStop(1, 'rgba(188, 19, 254, 0.0)');
+
+        const trafficChart = new Chart(ctxChart, {
+            type: 'line',
+            data: {
+                labels: ['-60s', '-50s', '-40s', '-30s', '-20s', '-10s', 'Now'],
+                datasets: [{
+                    label: 'Lượng xe / 10s',
+                    data: [5, 8, 12, 7, 15, 20, 18],
+                    borderColor: '#bc13fe',
+                    backgroundColor: gradientFill,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#00f3ff',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4 // Làm mượt đường
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#00f3ff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        // Hàm giả lập dữ liệu Realtime (Trong thực tế bạn sẽ bắt WebSocket/SSE từ FastAPI)
+        let simulationInterval;
+        function startMockDataSimulation() {
+            if(simulationInterval) clearInterval(simulationInterval);
             
-            document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+            let totalVehicles = 0;
+            const speedEl = document.getElementById('stat-speed');
+            const countEl = document.getElementById('stat-count');
+            const fpsEl = document.getElementById('stat-fps');
+            
+            simulationInterval = setInterval(() => {
+                // Update FPS (fluctuates around 25-30)
+                fpsEl.innerText = (25 + Math.random() * 5).toFixed(1);
+                
+                // Update Speed (fluctuates 30 - 50 km/h)
+                speedEl.innerHTML = Math.floor(30 + Math.random() * 20) + ' <span class="text-sm text-gray-500">km/h</span>';
+                
+                // Add random vehicles
+                let newVehicles = Math.floor(Math.random() * 3);
+                if (newVehicles > 0) {
+                    totalVehicles += newVehicles;
+                    countEl.innerText = totalVehicles;
+                }
+
+                // Update Chart (Shift left and push new data)
+                const dataArr = trafficChart.data.datasets[0].data;
+                dataArr.shift();
+                dataArr.push(Math.floor(5 + Math.random() * 20));
+                trafficChart.update('none'); // Update without full animation
+                
+            }, 2000); // Cập nhật mỗi 2 giây
         }
     </script>
 </body>

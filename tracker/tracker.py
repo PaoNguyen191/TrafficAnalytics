@@ -17,6 +17,7 @@ class Tracker:
             classes=self.detector.classes,
             device=self.detector.device,
             half=(self.detector.device == 'cuda'), # Use FP16 if on GPU
+            imgsz=640,
             verbose=False
         )
         return results[0]
