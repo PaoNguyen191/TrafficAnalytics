@@ -7,23 +7,21 @@ import cv2
 import os
 import json
 
-# Import trực tiếp máy phát từ main.py
-from main import generate_frames 
+# IMPORT THÊM BIẾN THỐNG KÊ TỪ MAIN
+from main import generate_frames, realtime_stats 
 
 app = FastAPI()
 
 os.makedirs("static", exist_ok=True)
 os.makedirs("videos", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
-os.makedirs("outputs", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 templates = Jinja2Templates(directory="templates")
 
 class PointsData(BaseModel):
     source_points: list[list[int]]
-    counting_region: list[list[int]]
+    counting_line: list[list[int]]
     video_path: str
 
 @app.get("/", response_class=HTMLResponse)
@@ -64,16 +62,18 @@ async def save_points(data: PointsData):
     with open("points_config.json", "w") as f:
         json.dump({
             "SOURCE_POINTS": data.source_points,
-            "COUNTING_REGION": data.counting_region,
+            "COUNTING_LINE": data.counting_line, 
             "INPUT_VIDEO": data.video_path
         }, f, indent=4)
     return {"status": "success", "message": "Hệ thống lưu cấu hình thành công!"}
 
-# --- API STREAM VIDEO REAL-TIME ---
 @app.get("/video_feed")
 def video_feed():
-    # Gọi trực tiếp generator và trả về chuẩn multipart x-mixed-replace (Hiệu ứng video live)
     return StreamingResponse(
         generate_frames(), 
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
+
+@app.get("/api/stats")
+def get_stats():
+    return realtime_stats

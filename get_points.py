@@ -8,7 +8,7 @@ ret, frame = cap.read()
 scale = 0.3 
 small_frame = cv2.resize(frame, (0,0), fx=scale, fy=scale)
 
-print("Hãy click 4 điểm theo thứ tự: Trên-Trái, Trên-Phải, Dưới-Phải, Dưới-Trái")
+print("Hãy click 6 điểm: 4 điểm đo tốc độ (đa giác) và 2 điểm đếm xe (đường thẳng)")
 print("Nhấn phím 'q' để thoát.")
 
 def click_event(event, x, y, flags, param):

@@ -37,6 +37,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        html { scroll-behavior: smooth; }
+
         body {
             background-color: #050505;
             background-image: 
@@ -46,7 +48,6 @@
             color: #e2e8f0;
         }
 
-        /* Glassmorphism Classes */
         .glass-panel {
             background: rgba(15, 23, 42, 0.4);
             backdrop-filter: blur(12px);
@@ -73,7 +74,6 @@
         }
         .btn-cyber:hover::before { left: 100%; }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
         ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 3px; }
@@ -81,7 +81,6 @@
 
         canvas { cursor: crosshair; }
         
-        /* Toast Animation */
         @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
@@ -103,30 +102,32 @@
         </div>
         
         <nav class="flex-1 p-4 space-y-2">
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 text-cyber-cyan shadow-[0_0_10px_rgba(0,243,255,0.1)] transition-all">
+            <a href="#" onclick="switchView('dashboard'); return false;" id="nav-dashboard" class="nav-item flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 text-cyber-cyan shadow-[0_0_10px_rgba(0,243,255,0.1)] transition-all">
                 <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
             </a>
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
-                <i data-lucide="video" class="w-5 h-5"></i> Camera Streams
-            </a>
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
+            <a href="#" onclick="switchView('reports'); return false;" id="nav-reports" class="nav-item flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
                 <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Reports
             </a>
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all">
-                <i data-lucide="settings" class="w-5 h-5"></i> Settings
-            </a>
         </nav>
+
+        <div class="px-4 mb-6">
+            <div class="p-4 rounded-xl border border-cyber-purple/30 bg-gradient-to-b from-cyber-purple/10 to-transparent">
+                <p class="text-[11px] text-gray-400 text-center mb-3 uppercase tracking-wider">Hành động</p>
+                <button id="btnRun" onclick="startLiveStream()" class="btn-cyber w-full bg-gradient-to-r from-cyber-purple to-pink-600 hover:from-pink-600 hover:to-cyber-purple text-white text-sm font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(188,19,254,0.4)] flex justify-center items-center gap-2 transition-all">
+                    <i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> CHẠY STREAM
+                </button>
+            </div>
+        </div>
         
-        <div class="p-4 border-t border-white/10">
+        <div class="p-4 border-t border-white/10 mt-auto">
             <div class="flex items-center gap-3">
-                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span class="text-sm text-gray-300">System Online</span>
+                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse" id="sys-status-dot"></div>
+                <span class="text-sm text-gray-300" id="sys-status-text">System Online</span>
             </div>
         </div>
     </aside>
 
     <main class="flex-1 flex flex-col h-screen overflow-y-auto relative">
-        
         <header class="glass-panel border-b border-white/10 p-4 sticky top-0 z-20 flex justify-between items-center">
             <h2 class="text-xl font-semibold text-white flex items-center gap-2">
                 <i data-lucide="activity" class="text-cyber-cyan"></i> Live Processing
@@ -135,60 +136,11 @@
                 <button class="p-2 hover:bg-white/10 rounded-full transition-all">
                     <i data-lucide="bell" class="w-5 h-5 text-gray-300"></i>
                 </button>
-                <div class="h-8 w-8 rounded-full bg-gradient-to-r from-cyber-cyan to-cyber-purple flex items-center justify-center font-bold text-white shadow-lg">
-                    A
-                </div>
+                <div class="h-8 w-8 rounded-full bg-gradient-to-r from-cyber-cyan to-cyber-purple flex items-center justify-center font-bold text-white shadow-lg">A</div>
             </div>
         </header>
 
-        <div class="p-6 grid grid-cols-12 gap-6">
-            
-            <div class="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-cyber-cyan hover:-translate-y-1 transition-all duration-300">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-sm text-gray-400 font-medium">Tổng Phương Tiện</p>
-                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-count">0</h3>
-                        </div>
-                        <div class="p-2 bg-cyber-cyan/10 rounded-lg"><i data-lucide="car" class="text-cyber-cyan w-6 h-6"></i></div>
-                    </div>
-                    <div class="mt-4 text-xs text-green-400 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3"></i> +12% so với giờ trước</div>
-                </div>
-                
-                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-cyber-purple hover:-translate-y-1 transition-all duration-300">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-sm text-gray-400 font-medium">Tốc Độ Trung Bình</p>
-                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-speed">0 <span class="text-sm text-gray-500">km/h</span></h3>
-                        </div>
-                        <div class="p-2 bg-cyber-purple/10 rounded-lg"><i data-lucide="gauge" class="text-cyber-purple w-6 h-6"></i></div>
-                    </div>
-                    <div class="mt-4 text-xs text-gray-400">Real-time estimation</div>
-                </div>
-
-                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-green-500 hover:-translate-y-1 transition-all duration-300">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-sm text-gray-400 font-medium">FPS Xử Lý</p>
-                            <h3 class="text-3xl font-bold text-white mt-1 font-mono" id="stat-fps">0</h3>
-                        </div>
-                        <div class="p-2 bg-green-500/10 rounded-lg"><i data-lucide="zap" class="text-green-500 w-6 h-6"></i></div>
-                    </div>
-                    <div class="mt-4 text-xs text-green-400">YOLOv11 TensorRT</div>
-                </div>
-
-                <div class="glass-panel p-5 rounded-2xl border-l-4 border-l-orange-500 hover:-translate-y-1 transition-all duration-300">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-sm text-gray-400 font-medium">Trạng Thái Hệ Thống</p>
-                            <h3 class="text-lg font-bold text-orange-400 mt-2" id="status-bar">Đang chờ cấu hình</h3>
-                        </div>
-                        <div class="p-2 bg-orange-500/10 rounded-lg"><i data-lucide="server" class="text-orange-500 w-6 h-6"></i></div>
-                    </div>
-                    <div class="mt-4 text-xs text-gray-400" id="point-counter">Đã chọn: 0/8 điểm</div>
-                </div>
-            </div>
-
+        <div id="view-dashboard" class="p-6 grid grid-cols-12 gap-6">
             <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
                 <div class="glass-panel rounded-2xl p-1 relative group overflow-hidden">
                     <div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyber-cyan rounded-tl-xl"></div>
@@ -196,51 +148,34 @@
                     <div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyber-cyan rounded-bl-xl"></div>
                     <div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyber-cyan rounded-br-xl"></div>
 
-                    <div class="bg-black rounded-xl overflow-hidden relative min-h-[400px] flex items-center justify-center">
-                        
+                    <div class="bg-black rounded-xl overflow-hidden relative min-h-[450px] flex items-center justify-center">
                         <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-0">
                             <i data-lucide="image-off" class="w-16 h-16 mb-4 opacity-50"></i>
                             <p>Chưa có luồng dữ liệu</p>
                         </div>
-
                         <canvas id="imageCanvas" class="w-full h-auto z-10 relative object-contain"></canvas>
-                        
                         <img id="resultStream" alt="AI Stream" class="w-full h-auto z-20 absolute top-0 left-0 hidden object-contain" />
-                        
                         <div id="loadingOverlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 hidden flex-col items-center justify-center">
                             <div class="w-12 h-12 border-4 border-cyber-purple border-t-cyber-cyan rounded-full animate-spin"></div>
                             <p class="text-cyber-cyan mt-4 font-mono animate-pulse">Khởi tạo Engine AI...</p>
                         </div>
                     </div>
                 </div>
-                
-                <div class="glass-panel rounded-2xl p-5">
-                    <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                        <i data-lucide="line-chart" class="text-cyber-purple"></i> Lưu lượng theo thời gian (Realtime)
-                    </h3>
-                    <div class="h-[250px] w-full relative">
-                        <canvas id="trafficChart"></canvas>
-                    </div>
-                </div>
             </div>
 
             <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
-                
                 <div class="glass-panel p-6 rounded-2xl neon-border transition-all">
                     <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
                         <i data-lucide="upload-cloud" class="text-cyber-cyan"></i> Nguồn Video
                     </h3>
-                    
                     <label for="videoUpload" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:bg-white/5 hover:border-cyber-cyan transition-all group">
                         <div class="flex flex-col items-center justify-center pt-5 pb-6">
                             <i data-lucide="video" class="w-8 h-8 text-gray-400 group-hover:text-cyber-cyan mb-2 transition-colors"></i>
-                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold text-white">Click để tải lên</span> hoặc kéo thả file</p>
-                            <p class="text-xs text-gray-500">MP4, AVI, MKV</p>
+                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold text-white">Click để tải lên</span></p>
                         </div>
                         <input id="videoUpload" type="file" class="hidden" accept="video/*" onchange="handleFileSelect(event)" />
                     </label>
                     <div id="fileNameDisplay" class="mt-3 text-sm text-cyber-cyan hidden truncate"></div>
-                    
                     <button onclick="uploadVideo()" class="btn-cyber w-full mt-4 bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 px-4 rounded-lg border border-white/20 flex justify-center items-center gap-2">
                         <i data-lucide="play" class="w-4 h-4"></i> Trích xuất Frame
                     </button>
@@ -248,18 +183,16 @@
 
                 <div class="glass-panel p-6 rounded-2xl">
                     <h3 class="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                        <i data-lucide="crosshair" class="text-cyber-purple"></i> Thiết lập vùng quan tâm (ROI)
+                        <i data-lucide="crosshair" class="text-cyber-purple"></i> Cấu hình vùng ROI
                     </h3>
-                    
                     <div class="space-y-3 mb-6">
                         <div class="flex items-center gap-3 text-sm text-gray-300">
                             <div class="w-3 h-3 rounded-full bg-red-500"></div> Điểm 1-4: Vùng đo tốc độ
                         </div>
                         <div class="flex items-center gap-3 text-sm text-gray-300">
-                            <div class="w-3 h-3 rounded-full bg-blue-500"></div> Điểm 5-8: Vùng đếm số lượng
+                            <div class="w-3 h-3 rounded-full bg-blue-500"></div> Điểm 5-6: Vạch kẻ đếm xe
                         </div>
                     </div>
-
                     <div class="grid grid-cols-2 gap-3">
                         <button onclick="clearPoints()" class="btn-cyber bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/50 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
                             <i data-lucide="trash-2" class="w-4 h-4"></i> Xóa điểm
@@ -268,47 +201,84 @@
                             <i data-lucide="save" class="w-4 h-4"></i> Lưu tọa độ
                         </button>
                     </div>
-                </div>
-
-                <div class="glass-panel p-6 rounded-2xl bg-gradient-to-br from-cyber-purple/10 to-transparent border border-cyber-purple/30">
-                    <div class="text-center mb-4">
-                        <h3 class="text-lg font-medium text-white">Bắt đầu phân tích</h3>
-                        <p class="text-xs text-gray-400 mt-1">Yêu cầu hoàn tất cấu hình điểm</p>
+                    <div class="mt-5 pt-4 border-t border-white/10 text-center">
+                        <div id="status-bar" class="text-sm font-bold text-orange-400 mb-1 uppercase tracking-wider">Đang chờ cấu hình</div>
+                        <div class="text-xs text-gray-400" id="point-counter">Đã chọn: 0/6 điểm</div>
                     </div>
-                    
-                    <button id="btnRun" onclick="startLiveStream()" class="btn-cyber w-full bg-gradient-to-r from-cyber-purple to-pink-600 hover:from-pink-600 hover:to-cyber-purple text-white font-bold py-3 px-4 rounded-xl shadow-[0_0_20px_rgba(188,19,254,0.4)] flex justify-center items-center gap-2 transition-all">
-                        <i data-lucide="radio" class="w-5 h-5 animate-pulse"></i> KHỞI CHẠY AI STREAM
-                    </button>
                 </div>
             </div>
         </div>
+
+        <div id="view-reports" class="p-6 grid grid-cols-12 gap-6 hidden">
+            <div class="col-span-12">
+                <div class="glass-panel rounded-2xl p-6">
+                    <h3 class="text-xl font-medium text-white mb-6 flex items-center gap-2">
+                        <i data-lucide="line-chart" class="text-cyber-purple w-6 h-6"></i> Biểu đồ lưu lượng xe (Real-time)
+                    </h3>
+                    
+                    <div class="h-[350px] w-full relative">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+
+                    <div class="mt-8 border-t border-white/10 pt-6">
+                        <h4 class="text-sm font-medium text-gray-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="list-ordered" class="w-4 h-4"></i> Chi tiết phân loại phương tiện
+                        </h4>
+                        <div id="details-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="col-span-4 text-center text-gray-500 text-sm py-4 bg-white/5 rounded-xl border border-white/10">
+                                Đang chờ AI phân tích dữ liệu...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
 
     <script>
-        // Initialize Lucide Icons
         lucide.createIcons();
 
-        // Canvas & Global State
+        // CHUYỂN ĐỔI MÀN HÌNH (SPA LOGIC)
+        function switchView(view) {
+            const navDash = document.getElementById('nav-dashboard');
+            const navRep = document.getElementById('nav-reports');
+            const viewDash = document.getElementById('view-dashboard');
+            const viewRep = document.getElementById('view-reports');
+
+            const activeClass = "nav-item flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10 text-cyber-cyan shadow-[0_0_10px_rgba(0,243,255,0.1)] transition-all";
+            const inactiveClass = "nav-item flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-all";
+
+            if(view === 'dashboard') {
+                viewDash.classList.remove('hidden');
+                viewRep.classList.add('hidden');
+                navDash.className = activeClass;
+                navRep.className = inactiveClass;
+            } else {
+                viewDash.classList.add('hidden');
+                viewRep.classList.remove('hidden');
+                navRep.className = activeClass;
+                navDash.className = inactiveClass;
+            }
+        }
+
         const canvas = document.getElementById('imageCanvas');
         const ctx = canvas.getContext('2d');
         let currentImage = new Image();
         let clickedPoints = [];
         let currentVideoPath = "";
 
-        // UI Elements
         const statusText = document.getElementById('status-bar');
         const pointCounter = document.getElementById('point-counter');
         const resultStream = document.getElementById('resultStream');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const videoPlaceholder = document.getElementById('videoPlaceholder');
 
-        // Toast System
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            
             let colorClass = 'border-blue-500 bg-blue-500/10 text-blue-400';
             let icon = 'info';
             
@@ -317,10 +287,7 @@
             if(type === 'warning') { colorClass = 'border-orange-500 bg-orange-500/10 text-orange-400'; icon = 'alert-triangle'; }
 
             toast.className = `toast-enter flex items-center gap-3 p-4 rounded-xl border backdrop-blur-md shadow-lg ${colorClass} min-w-[300px]`;
-            toast.innerHTML = `
-                <i data-lucide="${icon}" class="w-5 h-5"></i>
-                <span class="font-medium text-sm text-white">${message}</span>
-            `;
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i><span class="font-medium text-sm text-white">${message}</span>`;
             
             container.appendChild(toast);
             lucide.createIcons({ root: toast });
@@ -334,14 +301,14 @@
         }
 
         function updateStatus(msg, type = 'normal') {
+            if(!statusText) return;
             statusText.innerText = msg;
-            if(type === 'error') statusText.className = "text-lg font-bold text-red-400 mt-2";
-            else if(type === 'success') statusText.className = "text-lg font-bold text-green-400 mt-2";
-            else if(type === 'loading') statusText.className = "text-lg font-bold text-cyber-cyan mt-2 animate-pulse";
-            else statusText.className = "text-lg font-bold text-orange-400 mt-2";
+            if(type === 'error') statusText.className = "text-sm font-bold text-red-400 mb-1 uppercase tracking-wider";
+            else if(type === 'success') statusText.className = "text-sm font-bold text-green-400 mb-1 uppercase tracking-wider";
+            else if(type === 'loading') statusText.className = "text-sm font-bold text-cyber-cyan mb-1 animate-pulse uppercase tracking-wider";
+            else statusText.className = "text-sm font-bold text-orange-400 mb-1 uppercase tracking-wider";
         }
 
-        // File Selection UI
         function handleFileSelect(e) {
             const fileName = e.target.files[0]?.name;
             if(fileName) {
@@ -351,7 +318,6 @@
             }
         }
 
-        // Upload Video
         async function uploadVideo() {
             const fileInput = document.getElementById('videoUpload');
             if(fileInput.files.length === 0) return showToast("Vui lòng chọn file video trước!", 'warning');
@@ -359,7 +325,7 @@
             const formData = new FormData();
             formData.append("video", fileInput.files[0]);
             
-            updateStatus("Đang xử lý video...", 'loading');
+            updateStatus("Đang xử lý...", 'loading');
             loadingOverlay.style.display = 'flex';
 
             try {
@@ -379,13 +345,13 @@
                         canvas.style.display = 'block';
                         loadingOverlay.style.display = 'none';
 
-                        updateStatus("Chấm 8 điểm cấu trúc", 'normal');
-                        pointCounter.innerText = "Đã chọn: 0/8 điểm";
+                        updateStatus("Chờ cấu hình", 'normal');
+                        pointCounter.innerText = "Đã chọn: 0/6 điểm";
                         showToast("Trích xuất Frame thành công", 'success');
                     };
                     currentImage.src = data.frame_url + "?t=" + new Date().getTime(); 
                 } else {
-                    throw new Error("Lỗi từ server");
+                    throw new Error("Lỗi server");
                 }
             } catch (err) {
                 loadingOverlay.style.display = 'none';
@@ -394,29 +360,23 @@
             }
         }
 
-        // Drawing Logic
         canvas.addEventListener('mousedown', function(e) {
-            if(!currentImage.src || clickedPoints.length >= 8) {
-                if(clickedPoints.length >= 8) showToast("Đã đủ 8 điểm!", 'warning');
+            if(!currentImage.src || clickedPoints.length >= 6) {
+                if(clickedPoints.length >= 6) showToast("Đã đủ 6 điểm!", 'warning');
                 return;
             }
-            
             const rect = canvas.getBoundingClientRect();
-            // Map click coordinate based on natural image size vs displayed size
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            
             clickedPoints.push([
                 Math.round((e.clientX - rect.left) * scaleX),
                 Math.round((e.clientY - rect.top) * scaleY)
             ]);
-            
             drawCanvas();
-            pointCounter.innerText = `Đã chọn: ${clickedPoints.length}/8 điểm.`;
-            
-            if(clickedPoints.length === 8) {
-                updateStatus("Sẵn sàng lưu cấu hình", 'success');
-                showToast("Đã chấm đủ 8 điểm. Vui lòng bấm Lưu.", 'info');
+            pointCounter.innerText = `Đã chọn: ${clickedPoints.length}/6 điểm.`;
+            if(clickedPoints.length === 6) {
+                updateStatus("Sẵn sàng lưu", 'success');
+                showToast("Đã chấm đủ 6 điểm. Vui lòng bấm Lưu.", 'info');
             }
         });
 
@@ -425,9 +385,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
             
-            // Draw lines connecting regions for better UX
             if(clickedPoints.length > 1) {
-                // Speed Region (Red)
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(255, 51, 51, 0.5)';
                 ctx.lineWidth = 2;
@@ -438,16 +396,14 @@
                 if(clickedPoints.length >= 4) ctx.lineTo(clickedPoints[0][0], clickedPoints[0][1]);
                 ctx.stroke();
                 
-                // Count Region (Blue)
                 if(clickedPoints.length > 4) {
                     ctx.beginPath();
-                    ctx.strokeStyle = 'rgba(51, 102, 255, 0.5)';
-                    ctx.lineWidth = 2;
-                    for(let i=4; i < clickedPoints.length; i++) {
-                        if(i===4) ctx.moveTo(clickedPoints[i][0], clickedPoints[i][1]);
-                        else ctx.lineTo(clickedPoints[i][0], clickedPoints[i][1]);
+                    ctx.strokeStyle = 'rgba(51, 102, 255, 0.9)';
+                    ctx.lineWidth = 4;
+                    ctx.moveTo(clickedPoints[4][0], clickedPoints[4][1]);
+                    if(clickedPoints.length === 6) {
+                        ctx.lineTo(clickedPoints[5][0], clickedPoints[5][1]);
                     }
-                    if(clickedPoints.length === 8) ctx.lineTo(clickedPoints[4][0], clickedPoints[4][1]);
                     ctx.stroke();
                 }
             }
@@ -461,7 +417,6 @@
                 ctx.strokeStyle = '#ffffff'; 
                 ctx.stroke();
                 
-                // Text background for visibility
                 ctx.fillStyle = "rgba(0,0,0,0.6)";
                 ctx.fillRect(pt[0] + 12, pt[1] - 12, 18, 20);
                 
@@ -474,15 +429,15 @@
         function clearPoints() { 
             clickedPoints = []; 
             drawCanvas(); 
-            pointCounter.innerText = `Đã chọn: 0/8 điểm.`;
-            updateStatus("Đã xóa điểm, hãy chấm lại", 'normal');
+            pointCounter.innerText = `Đã chọn: 0/6 điểm.`;
+            updateStatus("Đang cấu hình", 'normal');
         }
 
         async function submitPoints() {
-            if(clickedPoints.length !== 8) return showToast("Vui lòng chấm đủ 8 điểm!", 'error');
+            if(clickedPoints.length !== 6) return showToast("Vui lòng chấm đủ 6 điểm!", 'error');
             const payload = { 
                 source_points: clickedPoints.slice(0, 4), 
-                counting_region: clickedPoints.slice(4, 8), 
+                counting_line: clickedPoints.slice(4, 6), 
                 video_path: currentVideoPath 
             };
             try {
@@ -491,49 +446,43 @@
                     headers: { "Content-Type": "application/json" }, 
                     body: JSON.stringify(payload) 
                 });
-                showToast("Đã lưu cấu hình đa giác", 'success');
-                updateStatus("Cấu hình hoàn tất", 'success');
+                showToast("Đã lưu cấu hình điểm", 'success');
+                updateStatus("Đã lưu ROI", 'success');
             } catch(err) {
                 showToast("Lỗi khi lưu tọa độ", 'error');
             }
         }
 
         function startLiveStream() {
-            if (clickedPoints.length < 8) return showToast("Chưa hoàn tất cấu hình ROI!", 'error');
+            if (clickedPoints.length < 6) return showToast("Chưa hoàn tất cấu hình ROI!", 'error');
             
-            updateStatus("Streaming...", 'loading');
-            loadingOverlay.style.display = 'flex';
-            
-            setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-                canvas.style.display = 'none';
-                resultStream.classList.remove('hidden');
-                resultStream.src = "/video_feed?t=" + new Date().getTime();
-                
-                showToast("Bắt đầu luồng AI Tracker", 'success');
-                startMockDataSimulation(); // Bật mô phỏng data UI
-            }, 1000);
+            // ĐÃ XÓA TỰ ĐỘNG CHUYỂN TRANG REPORTS Ở ĐÂY
+
+            updateStatus("Đang phân tích", 'loading');
+            document.getElementById('sys-status-dot').className = "w-2 h-2 rounded-full bg-cyber-cyan animate-pulse";
+            document.getElementById('sys-status-text').innerText = "Processing Data";
+
+            resultStream.classList.remove('hidden');
+            resultStream.src = "/video_feed?t=" + new Date().getTime();
+            showToast("Bắt đầu luồng AI Tracker", 'success');
+            startRealtimeData(); 
         }
 
         // ==========================================
-        // CHART & MOCK DATA LOGIC (For Dashboard UI)
+        // CHART & API DATA FETCHING
         // ==========================================
-        
-        // Chart Initialization
         const ctxChart = document.getElementById('trafficChart').getContext('2d');
-        
-        // Tạo gradient mượt cho Line Chart
-        let gradientFill = ctxChart.createLinearGradient(0, 0, 0, 250);
-        gradientFill.addColorStop(0, 'rgba(188, 19, 254, 0.5)'); // cyber-purple
+        let gradientFill = ctxChart.createLinearGradient(0, 0, 0, 350);
+        gradientFill.addColorStop(0, 'rgba(188, 19, 254, 0.5)'); 
         gradientFill.addColorStop(1, 'rgba(188, 19, 254, 0.0)');
 
         const trafficChart = new Chart(ctxChart, {
             type: 'line',
             data: {
-                labels: ['-60s', '-50s', '-40s', '-30s', '-20s', '-10s', 'Now'],
+                labels: ['-9s', '-7.5s', '-6s', '-4.5s', '-3s', '-1.5s', 'Now'],
                 datasets: [{
-                    label: 'Lượng xe / 10s',
-                    data: [5, 8, 12, 7, 15, 20, 18],
+                    label: 'Lượt xe / 1.5s',
+                    data: [0, 0, 0, 0, 0, 0, 0],
                     borderColor: '#bc13fe',
                     backgroundColor: gradientFill,
                     borderWidth: 2,
@@ -543,67 +492,72 @@
                     pointRadius: 4,
                     pointHoverRadius: 6,
                     fill: true,
-                    tension: 0.4 // Làm mượt đường
+                    tension: 0.4 
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#00f3ff',
-                        bodyColor: '#fff',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono' } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8' }
-                    }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
                 }
             }
         });
 
-        // Hàm giả lập dữ liệu Realtime (Trong thực tế bạn sẽ bắt WebSocket/SSE từ FastAPI)
-        let simulationInterval;
-        function startMockDataSimulation() {
-            if(simulationInterval) clearInterval(simulationInterval);
-            
-            let totalVehicles = 0;
-            const speedEl = document.getElementById('stat-speed');
-            const countEl = document.getElementById('stat-count');
-            const fpsEl = document.getElementById('stat-fps');
-            
-            simulationInterval = setInterval(() => {
-                // Update FPS (fluctuates around 25-30)
-                fpsEl.innerText = (25 + Math.random() * 5).toFixed(1);
-                
-                // Update Speed (fluctuates 30 - 50 km/h)
-                speedEl.innerHTML = Math.floor(30 + Math.random() * 20) + ' <span class="text-sm text-gray-500">km/h</span>';
-                
-                // Add random vehicles
-                let newVehicles = Math.floor(Math.random() * 3);
-                if (newVehicles > 0) {
-                    totalVehicles += newVehicles;
-                    countEl.innerText = totalVehicles;
-                }
+        let dataInterval;
+        let lastTotalVehicles = 0;
 
-                // Update Chart (Shift left and push new data)
-                const dataArr = trafficChart.data.datasets[0].data;
-                dataArr.shift();
-                dataArr.push(Math.floor(5 + Math.random() * 20));
-                trafficChart.update('none'); // Update without full animation
-                
-            }, 2000); // Cập nhật mỗi 2 giây
+        function startRealtimeData() {
+            if(dataInterval) clearInterval(dataInterval);
+            
+            const detailsGrid = document.getElementById('details-grid');
+            
+            dataInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/stats');
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    
+                    // --- KIỂM TRA ĐIỀU KIỆN DỪNG VIDEO ---
+                    if (data.status === "finished") {
+                        clearInterval(dataInterval);
+                        updateStatus("ĐÃ KẾT THÚC", 'success');
+                        document.getElementById('sys-status-dot').className = "w-2 h-2 rounded-full bg-green-500";
+                        document.getElementById('sys-status-text').innerText = "System Online";
+                        showToast("Video đã kết thúc, hoàn tất phân tích!", "success");
+                        return; 
+                    }
+
+                    // --- CẬP NHẬT GIAO DIỆN KHI ĐANG CHẠY ---
+                    // Vẽ biểu đồ
+                    const newVehiclesInInterval = data.total_vehicles - lastTotalVehicles;
+                    lastTotalVehicles = data.total_vehicles;
+                    const dataArr = trafficChart.data.datasets[0].data;
+                    dataArr.shift();
+                    dataArr.push(newVehiclesInInterval >= 0 ? newVehiclesInInterval : 0);
+                    trafficChart.update('none'); 
+                    
+                    // Cập nhật số liệu chi tiết các loại xe ở bên dưới
+                    if (data.details && Object.keys(data.details).length > 0) {
+                        detailsGrid.innerHTML = '';
+                        for (const [vehicleClass, count] of Object.entries(data.details)) {
+                            detailsGrid.innerHTML += `
+                                <div class="p-4 rounded-xl bg-white/5 border border-white/10 text-center hover:bg-white/10 transition-colors shadow-lg">
+                                    <p class="text-gray-400 text-sm mb-1">${vehicleClass}</p>
+                                    <h4 class="text-3xl font-bold text-cyber-cyan font-mono">${count}</h4>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        detailsGrid.innerHTML = `<div class="col-span-4 text-center text-gray-500 text-sm py-4 bg-white/5 rounded-xl border border-white/10">Chưa phát hiện phương tiện...</div>`;
+                    }
+
+                } catch (err) {
+                    console.error("Lỗi lấy dữ liệu:", err);
+                }
+            }, 1500); 
         }
     </script>
 </body>

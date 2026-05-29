@@ -14,9 +14,17 @@ import torch
 import numpy as np
 from typing import Optional, Tuple
 
-# Cache model ở phạm vi toàn cục để không phải load lại YOLO mỗi lần refresh trình duyệt
 detector: Optional[Detector] = None
 tracker: Optional[Tracker] = None
+
+# THÊM BIẾN TOÀN CỤC LƯU DỮ LIỆU THỐNG KÊ ĐỂ GỬI LÊN WEB (REPORT)
+realtime_stats = {
+    "total_vehicles": 0,
+    "avg_speed": 0.0,
+    "fps": 0.0,
+    "details": {},
+    "status": "waiting" 
+}
 
 def get_models() -> Tuple[Detector, Tracker]:
     global detector, tracker
@@ -26,13 +34,18 @@ def get_models() -> Tuple[Detector, Tracker]:
     assert detector is not None and tracker is not None
     return detector, tracker
 
+def ccw(A, B, C):
+    return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0])
+
+def intersect(A, B, C, D):
+    return ccw(A, C, D) != ccw(B, C, D) and ccw(A, B, C) != ccw(A, B, D)
+
 def generate_frames():
-    # Load model từ bộ nhớ đệm
+    global realtime_stats
     det, trk = get_models()
     
-    # Đọc cấu hình động từ File JSON (Web vừa lưu xong)
     source_points = config.SOURCE_POINTS
-    counting_region = config.COUNTING_REGION
+    counting_line = config.COUNTING_LINE
     input_video = config.INPUT_VIDEO
     
     if os.path.exists("points_config.json"):
@@ -40,7 +53,8 @@ def generate_frames():
             with open("points_config.json", "r") as f:
                 data = json.load(f)
                 source_points = np.array(data["SOURCE_POINTS"], dtype=np.float32)
-                counting_region = np.array(data["COUNTING_REGION"], dtype=np.int32)
+                if "COUNTING_LINE" in data:
+                    counting_line = data["COUNTING_LINE"]
                 input_video = data["INPUT_VIDEO"]
         except Exception as e:
             print(f"Lỗi đọc tọa độ: {e}")
@@ -53,22 +67,24 @@ def generate_frames():
     trajectory_history = {} 
     counted_ids = set() 
     class_counts = {cls_id: 0 for cls_id in config.TARGET_CLASSES} 
-    
-    Y_MIN_MEASURE = 600
-    Y_MAX_MEASURE = 3500
 
     cap = cv2.VideoCapture(input_video)
     
-    # Vẫn ghi ra file song song với luồng stream để sau này xem lại
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # Lấy thông số video (chỉ giữ lại FPS để tính tốc độ)
     fps = int(cap.get(cv2.CAP_PROP_FPS)) 
-    fourcc = cv2.VideoWriter.fourcc(*'mp4v') 
-    out = cv2.VideoWriter(config.OUTPUT_VIDEO, fourcc, fps, (width, height))
+    
+    # -----------------------------------------------------------------
+    # ĐÃ TẮT TÍNH NĂNG GHI VIDEO RA Ổ CỨNG ĐỂ TỐI ƯU HÓA FPS (GIẢM GIẬT LAG)
+    # width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    # height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # fourcc = cv2.VideoWriter.fourcc(*'mp4v') 
+    # out = cv2.VideoWriter(config.OUTPUT_VIDEO, fourcc, fps, (width, height))
+    # -----------------------------------------------------------------
 
     print("Bắt đầu phát luồng trực tiếp (Live Stream)...")
     frame_count = 0
-
+    realtime_stats["status"] = "running"
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -79,11 +95,9 @@ def generate_frames():
         results = trk.process_frame(frame)
         
         Visualizer.draw_homography_polygon(frame, source_points)
-        cv2.polylines(frame, [counting_region], isClosed=True, color=config.COLOR_LINE, thickness=3)
         
-        overlay = frame.copy()
-        cv2.fillPoly(overlay, [counting_region], config.COLOR_LINE)
-        cv2.addWeighted(overlay, 0.2, frame, 0.8, 0, frame)
+        p1, p2 = counting_line[0], counting_line[1]
+        cv2.line(frame, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), config.COLOR_LINE, thickness=5)
 
         if results.boxes is not None and results.boxes.id is not None:
             boxes     = torch.as_tensor(results.boxes.xyxy).cpu().numpy()
@@ -97,17 +111,28 @@ def generate_frames():
                     trajectory_history[track_id] = deque(maxlen=30)
                 trajectory_history[track_id].append(bc_point)
                 
+                # --- LOGIC 1: KIỂM TRA CẮT VẠCH ĐỂ ĐẾM XE ---
                 if track_id not in counted_ids:
-                    pt = (float(bc_point[0]), float(bc_point[1]))
-                    is_inside = cv2.pointPolygonTest(counting_region, pt, False) >= 0
-                    if is_inside:
-                        counted_ids.add(track_id)
-                        class_counts[class_id] += 1
+                    if len(trajectory_history[track_id]) >= 2:
+                        prev_point = trajectory_history[track_id][-2] 
+                        curr_point = trajectory_history[track_id][-1] 
+                        
+                        line_start = counting_line[0]
+                        line_end = counting_line[1]
+                        
+                        if intersect(line_start, line_end, prev_point, curr_point):
+                            counted_ids.add(track_id)
+                            class_counts[class_id] += 1
+
+                # --- LOGIC 2: ĐO TỐC ĐỘ TRONG VÙNG ROI ---
+                pt = (float(bc_point[0]), float(bc_point[1]))
+                is_inside_speed_zone = cv2.pointPolygonTest(source_points, pt, False) >= 0
                 
                 speed = 0.0
-                if Y_MIN_MEASURE < bc_point[1] < Y_MAX_MEASURE:
+                if is_inside_speed_zone:
                     bev_point = transformer.transform_point(bc_point)
-                    speed = estimator.update(track_id, bev_point, frame_count, fps)
+                    valid_fps = fps if fps > 0 else 30
+                    speed = estimator.update(track_id, bev_point, frame_count, valid_fps)
                 
                 cls_name = class_names[class_id]
                 Visualizer.draw_trajectory(frame, trajectory_history[track_id])
@@ -118,33 +143,33 @@ def generate_frames():
                 else:
                     Visualizer.draw_bbox(frame, box, track_id, speed, cls_name)
 
-        y_offset = 120
-        cv2.putText(frame, "VEHICLES COUNT:", (40, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 4)
-        for cls_id, count in class_counts.items():
-            y_offset += 60
-            text = f"- {class_names[cls_id].upper()}: {count}"
-            cv2.putText(frame, text, (40, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 4)
-
+        # CẬP NHẬT THỐNG KÊ REAL-TIME ĐỂ ĐẨY LÊN WEB
+        valid_speeds = [s for s in estimator.speeds.values() if s > 0]
+        avg_speed = sum(valid_speeds) / len(valid_speeds) if valid_speeds else 0.0
         current_fps = fps_counter.update()
-        Visualizer.draw_fps(frame, current_fps)
-        out.write(frame)
+        
+        realtime_stats["total_vehicles"] = len(counted_ids)
+        realtime_stats["avg_speed"] = round(avg_speed, 1)
+        realtime_stats["fps"] = round(current_fps, 1)
+        realtime_stats["details"] = {class_names[k].upper(): v for k, v in class_counts.items()}
 
-        # --- LOGIC NÉN BẢN TIN ĐỂ STREAM LÊN WEB ---
-        # Thu nhỏ khung hình (Scale xuống 50%) để đường truyền Web không bị quá tải khi Stream 4K
+        Visualizer.draw_fps(frame, current_fps)
+        
+        # ĐÃ TẮT GHI FRAME VÀO Ổ CỨNG ĐỂ TRÁNH GIẬT LAG
+        # out.write(frame) 
+
         scale_percent = 0.5 
         stream_frame = cv2.resize(frame, (0, 0), fx=scale_percent, fy=scale_percent)
 
-        # Encode frame ảnh thành chuẩn JPEG
         ret_encode, buffer = cv2.imencode('.jpg', stream_frame)
         if ret_encode:
             frame_bytes = buffer.tobytes()
-            # Bơm luồng byte ảnh ra ngoài theo giao thức HTTP đa phần (Multipart)
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
     cap.release()
-    out.release()
+    # out.release() # TẮT GIẢI PHÓNG VIDEO WRITER
+    
+    realtime_stats["status"] = "finished" 
+    realtime_stats["fps"] = 0.0
     print("Luồng Stream kết thúc!")
-
-if __name__ == "__main__":
-    print("Vui lòng khởi chạy thông qua máy chủ FastAPI (uvicorn main_api:app) để xem luồng Stream.")
