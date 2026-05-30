@@ -108,7 +108,7 @@ def generate_frames():
                 bc_point = get_bottom_center(box)
                 
                 if track_id not in trajectory_history:
-                    trajectory_history[track_id] = deque(maxlen=30)
+                    trajectory_history[track_id] = deque(maxlen=15)
                 trajectory_history[track_id].append(bc_point)
                 
                 # --- LOGIC 1: KIỂM TRA CẮT VẠCH ĐỂ ĐẾM XE ---
